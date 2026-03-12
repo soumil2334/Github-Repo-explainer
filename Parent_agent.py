@@ -6,6 +6,7 @@ from openai.types.responses import ResponseTextDeltaEvent
 from pydantic import BaseModel, Field
 from typing import Optional
 import base64
+import uuid
 from rich.console import Console
 from rich.markdown import Markdown
 from agents import Agent, Runner, trace, OpenAIChatCompletionsModel, function_tool
@@ -211,6 +212,7 @@ async def parent_agent(message : str):
                 print(event.data.delta, end='')
                 repo_markdown.append(event.data.delta)
 
-    repo_text=''.join(repo_markdown)
-    console.print(Markdown(repo_text))
+    tut_text=''.join(repo_markdown)
+    console.print(Markdown(tut_text))
+    save_as_pdf(tutorial_text=tut_text, filename=f'{uuid.uuid4()}.pdf')
     
