@@ -1,0 +1,46 @@
+# FastAPI + server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# OpenAI
+openai
+openai-agents
+
+# LangChain
+langchain
+langchain-core
+langchain-openai
+langchain-experimental
+langchain-neo4j
+langchain-community
+
+# Graph database
+neo4j
+
+# Vector database
+qdrant-client
+
+# Code chunking
+tree-sitter
+tree-sitter-languages
+
+# PDF generation
+pdfkit
+markdown
+Pygments
+
+# HTTP requests (GitHub API)
+requests
+
+# Environment variables
+python-dotenv
+
+# Pydantic
+pydantic
+
+# Rich terminal output
+rich
+
+# AWS / Cloudflare R2 (if using cloud storage)
+boto3
