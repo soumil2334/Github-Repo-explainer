@@ -7,8 +7,7 @@ RepoLens analyzes any public GitHub repository and generates a structured techni
 ---
 ## Demo
 
-
-[▶ Watch Demo on Loom](https://www.loom.com/share/46f825371440460bb668b292aa829e6b)
+[![RepoLens Demo](image.png)](https://www.loom.com/share/46f825371440460bb668b292aa829e6b)
 
 ---
 
