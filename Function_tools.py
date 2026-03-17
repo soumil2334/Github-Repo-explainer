@@ -89,7 +89,6 @@ def Navigate_repo(url:str, file_type : str)-> Navigate_repo_class:
     One you have to navigate a tree or to get the content of blob
 
     When not to call ->
-    Do NOT call this tool if the blob is not a source code file.
     Do NOT call this tool for files such as:
     README.md, LICENSE, .gitignore, images (.png, .jpg), PDFs, videos, binaries, or documentation files.
     
@@ -152,5 +151,6 @@ def create_chunks(content : str, language : str, filename:str):
     
         store_in_Qdrant(chunks=chunks)
         return('Created a chunk')
+    
     except Exception as e:
         return('Error e occured')

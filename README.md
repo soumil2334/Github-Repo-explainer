@@ -1,158 +1,225 @@
-# GitHub Repo Tutorial Generator 🤖
+# RepoLens
 
-An AI-powered agent that automatically explores any public GitHub repository and generates a detailed, code-referenced tutorial using a two-agent architecture.
+> AI-powered GitHub repository explainer with Graph RAG chat
+
+RepoLens analyzes any public GitHub repository and generates a structured technical tutorial. It then builds a knowledge graph from the codebase and lets you chat with it using a hybrid Graph RAG pipeline combining Neo4j, Qdrant, and the OpenAI Agents SDK.
 
 ---
 
 ## What It Does
 
-Give it a GitHub repo URL. It navigates the entire codebase, reads the relevant files, and produces a structured 2000+ word tutorial explaining the project — complete with actual code snippets, library explanations, and an end-to-end flow walkthrough.
+1. **Analyzes** a GitHub repo by reading its files using the GitHub API
+2. **Generates** a structured 2000+ word tutorial covering architecture, installation, key files, and code walkthrough — streamed live to the UI
+3. **Exports** the tutorial as a styled PDF
+4. **Indexes** the codebase into a knowledge graph (Neo4j) and vector database (Qdrant)
+5. **Chats** with you about the codebase using a hybrid retrieval pipeline that combines vector search, graph descriptions, and graph traversal
 
 ---
 
 ## Architecture
 
-The system uses a **two-agent pipeline** to minimize token usage and cost:
-
 ```
-User Input (repo URL)
-        ↓
-┌──────────────────────┐
-│   Navigator Agent    │  ← explores repo using 3 tools
-│                      │    reads up to 8 core files
-│  - get_readme()      │    returns compact JSON summary
-│  - return_file_      │
-│    structure()       │
-│  - Navigate_repo()   │
-└──────────┬───────────┘
-           │ JSON summary only (~2K tokens)
-           ↓
-┌──────────────────────┐
-│  Tutorial Writer     │  ← no tools, fresh context
-│      Agent           │    consumes JSON summary only
-│                      │    writes 2000+ word tutorial
-└──────────────────────┘
-           ↓
-     Final Tutorial
-```
-
-### Why Two Agents?
-
-A single agent accumulates all file contents in its context across every turn, leading to compounding token costs (e.g. 325K tokens = ~$1/run). By splitting into two separate `Runner.run()` calls, the Navigator's raw file content is discarded after Run 1 — only the compact JSON summary (~2K tokens) crosses the boundary into Run 2.
-
-**Result: ~75K tokens vs ~325K tokens. ~80% cost reduction.**
-
----
-
-## Tools
-
-### `get_readme(user, repository_name)`
-Always called first. Fetches and decodes the README to give the agent context on the project's purpose and architecture before any navigation begins.
-
-### `return_file_structure(user, repository_name)`
-Called second. Returns the full recursive file tree of the repository as a formatted string (`path  type`), allowing the agent to plan which files to read before making any Navigate_repo calls.
-
-### `Navigate_repo(url, file_type)`
-The core navigation tool. Called repeatedly to either expand a directory (`file_type='tree'`) or read a file's content (`file_type='blob'`). Supports parallel calls for multiple URLs of the same type.
-
-**URL format required:**
-```
-https://api.github.com/repos/{user}/{repo}/contents/{path}
+User
+ │
+ ├── POST /analyze/{session_id}
+ │     └── Parent Agent (OpenAI Agents SDK)
+ │           ├── get_readme()          GitHub API
+ │           ├── return_file_structure() GitHub API
+ │           ├── Navigate_repo()       GitHub API
+ │           └── create_chunks()       → Qdrant (raw code chunks)
+ │
+ ├── GET  /download/{session_id}
+ │     └── pdfkit → PDF bytes → browser
+ │
+ └── WS   /chat/{session_id}
+       ├── Create_KG()
+       │     ├── scroll Qdrant (raw chunks)
+       │     └── LLMGraphTransformer → GraphDocuments
+       ├── Store_graph_Neo4j()   → Neo4j
+       ├── Store_graph_Qdrant()  → Qdrant (graph doc embeddings)
+       └── Chat loop
+             └── Chat Agent (OpenAI Agents SDK)
+                   └── Query_VectorDB()
+                         ├── Qdrant vector search (graph docs)
+                         └── Neo4j traversal (1-hop relationships)
 ```
 
 ---
 
-## Setup
+## Tech Stack
 
-### Prerequisites
-- Python 3.9+
+| Component | Technology |
+|---|---|
+| Backend | FastAPI |
+| Frontend | Vanilla HTML/CSS/JS |
+| Parent Agent | OpenAI Agents SDK + GPT-4o |
+| Chat Agent | OpenAI Agents SDK + GPT-4o-mini |
+| Graph extraction | LangChain `LLMGraphTransformer` |
+| Knowledge graph | Neo4j (Aura) |
+| Vector database | Qdrant Cloud |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| Code chunking | `tree-sitter` via `chunk_ast` |
+| PDF generation | `pdfkit` + `wkhtmltopdf` |
+| Tracing | OpenAI Agents SDK tracing |
+
+---
+
+## Prerequisites
+
+- Python 3.11+
+- [wkhtmltopdf](https://wkhtmltopdf.org/downloads.html) installed locally
+- Neo4j Aura account (free tier works)
+- Qdrant Cloud account (free tier works)
 - OpenAI API key
 - GitHub Personal Access Token
 
-### Installation
+---
+
+## Installation
 
 ```bash
-git clone https://github.com/your-username/gh-repo-tutorial-generator
-cd gh-repo-tutorial-generator
+git clone https://github.com/your-username/RepoLens.git
+cd RepoLens
+python -m venv myenv
+source myenv/bin/activate  # Windows: myenv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Environment Variables
+---
 
-Create a `.env` file:
-```
-OPENAI_API_KEY=your_openai_api_key
-GITHUB_ACCESS_TOKEN=Bearer your_github_token
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+OPENAI_API_KEY=sk-...
+
+# GitHub
+Github_access_token=Bearer ghp_...
+
+# Qdrant Cloud
+QDRANT_CLUSTER=https://your-cluster.qdrant.io
+QDRANT_API_KEY=your-qdrant-api-key
+
+# Neo4j Aura
+NEO4J_URI=neo4j+s://your-instance.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your-neo4j-password
 ```
 
-> **Note:** GitHub's unauthenticated API is rate-limited to 60 requests/hour. A token raises this to 5,000/hour and is required for any real repository.
+---
+
+## Running the App
+
+```bash
+uvicorn main:app --reload
+```
+
+Open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ---
 
 ## Usage
 
-```python
-import asyncio
+**Step 1 — Enter repository details**
 
-tutorial = asyncio.run(generate_tutorial('https://github.com/owner/repo'))
-print(tutorial)
-```
+Fill in the GitHub URL, owner, repository name, and branch. The owner and repo name auto-fill from the URL as you type.
 
----
+**Step 2 — Analyze**
 
-## Cost & Token Management
+Click **Analyze Repository**. The parent agent reads the README, maps the file structure, navigates all core files, chunks them into Qdrant, and streams a full technical tutorial to the screen.
 
-| Approach | Tokens | Approx Cost (gpt-4o-mini) |
-|---|---|---|
-| Single agent (no optimizations) | ~325K | ~$1.00 |
-| Two-agent pipeline | ~75K | ~$0.20 |
+**Step 3 — Download PDF**
 
-### Built-in guardrails
-- Maximum 8 files read per run (prevents runaway navigation)
-- Binary and irrelevant files are skipped (`.png`, `.pt`, `LICENSE`, `__pycache__`)
-- API errors return gracefully without breaking the navigation loop
+Click **Download PDF** to get a styled dark-theme PDF of the tutorial.
+
+**Step 4 — Open Chat**
+
+Click **Open Chat**. The app builds a knowledge graph from the Qdrant chunks, stores it in Neo4j, embeds the graph documents back into Qdrant, and opens a chat interface. The chat agent decides on every turn whether to query the vector database or answer from conversation history.
 
 ---
 
 ## Project Structure
 
 ```
-gh-repo-tutorial-generator/
+RepoLens/
+├── main.py                   # FastAPI app — routes and WebSocket
+├── frontend.html             # Single-page UI
+├── Parent_agent.py           # Parent agent — repo analysis pipeline
+├── Function_tools.py         # Tools: get_readme, return_file_structure, Navigate_repo, create_chunks
+├── save_as_pdf.py            # PDF generation (returns bytes)
+├── Qdrant_db.py              # store_in_Qdrant helper
+├── chunk_ast.py              # Tree-sitter based code chunking
 │
-├── tools.py              # get_readme, return_file_structure, Navigate_repo
-├── agents.py             # Navigator and Tutorial Writer agent definitions  
-├── main.py               # Orchestration — runs both agents sequentially
-├── requirements.txt
-└── .env.example
+├── Chat_logic/
+│   ├── Chat.py               # Chat agent + get_answer generator
+│   └── prompt.py             # CHAT_AGENT_INSTRUCTION
+│
+└── KG/
+    ├── kg.py                 # Create_KG, Store_graph_Neo4j, Store_graph_Qdrant
+    ├── Graph_RAG.py          # Graph_Query_Qdrant, traversal_query
+    ├── graph_docs_Qdrant.py  # create_string_payload — graph doc stringifier
+    └── create_prompt.py      # build_prompt — final LLM prompt builder
 ```
 
 ---
 
-## Requirements
+## How the Graph RAG Works
 
-```
-openai-agents
-openai
-requests
-pydantic
-python-dotenv
+The chat uses a three-source hybrid retrieval pipeline:
+
+**1. Vector search on graph documents (Qdrant)**
+Each code chunk is processed by `LLMGraphTransformer` which extracts entities and relationships. The resulting `GraphDocument` is stringified into a text description and embedded. At query time, the most semantically similar graph docs are retrieved.
+
+**2. Graph traversal (Neo4j)**
+From the matched graph doc nodes, a 1-hop Cypher traversal finds directly connected entities — revealing how functions call each other, what they initialize, what they return. `MENTIONS` relationships are filtered out to reduce noise.
+
+**3. Raw code chunks (Qdrant)**
+The original code text is available in the graph doc payload and included as ground truth context.
+
+All three sources are combined into a single prompt sent to the chat agent.
+
+---
+
+## Key Design Decisions
+
+**Why Graph RAG over plain vector search?**
+Vector search finds semantically similar chunks but misses structural relationships. A question like *"how does the upload endpoint connect to ChromaDB?"* requires following edges across files — which only graph traversal can do.
+
+**Why stringify graph documents before embedding?**
+Embedding models are trained on natural language. Converting `Node(id='Create_Db', type='Function')` to `"Function: Create_Db initializes Client"` produces richer embeddings that match developer questions more accurately.
+
+**Why semaphore on LLM graph extraction?**
+`LLMGraphTransformer` fires all documents concurrently by default. With large codebases this immediately exhausts the OpenAI TPM limit. A `Semaphore(3)` limits concurrent LLM calls to 3 at a time.
+
+**Why session_id from the frontend?**
+Using `crypto.randomUUID()` in the browser means no server round-trip is needed to start a session. The session_id ties the analysis (`/analyze/{id}`), download (`/download/{id}`), and chat (`/chat/{id}`) together without any persistent storage.
+
+---
+
+## Troubleshooting
+
+**`wkhtmltopdf` not found**
+Make sure it's installed and on your PATH. On Windows, update the path in `save_as_pdf.py`. On Linux/Mac, `brew install wkhtmltopdf` or `apt-get install wkhtmltopdf`.
+
+**`Collection 'documents' doesn't exist`**
+This happens when the chat is opened before the parent agent has finished analyzing the repo. Complete the analysis step first so `create_chunks` has populated Qdrant.
+
+**Rate limit errors during graph extraction**
+The semaphore limits concurrent calls but if your Qdrant collection has many chunks you may still hit TPM limits. Reduce the semaphore value to `asyncio.Semaphore(1)` or switch from `gpt-4o-mini` to a higher-tier model with more TPM.
+
+**WebSocket disconnects immediately**
+Make sure `await websocket.accept()` is the first line in the WebSocket handler — before any processing. The browser will time out if accept is delayed.
+
+**Neo4j deprecation warnings flooding logs**
+Add this near the top of `main.py`:
+```python
+import logging
+logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
 ```
 
 ---
 
-## Limitations
+## License
 
-- Only works with **public** GitHub repositories
-- Repositories with very deep nesting may require increased file limits
-- Code-heavy files (>500 lines) are summarized rather than read in full to stay within context limits
-- Default branch assumed to be `master` — repositories using `main` will need a small config change
-
----
-
-## How It Was Built
-
-This project was built iteratively with a focus on:
-
-- **Tool design as prompts** — docstrings are written as agent contracts (when to call, what to pass, what returns, what next) rather than human documentation
-- **Separation of concerns** — navigation logic lives in tools, reasoning lives in the agent, writing lives in a separate agent
-- **Cost-aware architecture** — the two-agent split was chosen specifically to prevent context compounding across long navigation loops
+MIT

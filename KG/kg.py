@@ -1,6 +1,7 @@
 from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_neo4j import Neo4jGraph
 from langchain_openai import ChatOpenAI
+from qdrant_client.models import VectorParams, Distance
 from langchain_core.documents import Document
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
@@ -40,6 +41,7 @@ async def Create_KG(collection_name:str='documents'):
     points=[]
     offset=None
     i=0
+
     while True:
         i+=1
         result, offset= client.scroll(
@@ -58,14 +60,17 @@ async def Create_KG(collection_name:str='documents'):
     document=[]
 
     for i, point in enumerate(points):
-
         payload=point.payload
-        doc=Document(
-            page_content=payload.get('text'),
-            metadata={**payload,
+        doc = Document(
+        page_content=payload.get('text'),
+        metadata={
+            'file':       payload.get('file', 'unknown'),
+            'node_type':  payload.get('node_type', 'unknown'),
+            'name':       payload.get('name', 'unknown'),
+            'start_line': payload.get('start_line', 0),
+            'end_line':   payload.get('end_line', 0),
+            'Source_type': 'Graph_Document'})
 
-                'Source_type' : 'Graph_Document',
-            })
         document.append(doc)
 
     sempaphore=asyncio.Semaphore(3)
@@ -91,6 +96,16 @@ def Store_graph_Neo4j(documents):
 def Store_graph_Qdrant(graph_docs, collection_name='documents'):
     list_graph_docs=create_string_payload(graph_docs)
     points=[]
+    try:
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(
+                size=1536,
+                distance=Distance.COSINE
+            )
+        )
+    except Exception:
+        pass
     
     for graph_doc in list_graph_docs:
         text=graph_doc.get('TEXT')

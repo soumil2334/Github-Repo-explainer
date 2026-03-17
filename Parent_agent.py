@@ -10,7 +10,7 @@ import uuid
 from rich.console import Console
 from rich.markdown import Markdown
 from agents import Agent, Runner, trace, OpenAIChatCompletionsModel, function_tool
-from Function_tools import get_readme, return_file_structure, Navigate_repo
+from Function_tools import get_readme, return_file_structure, Navigate_repo, create_chunks
 from save_as_pdf import save_as_pdf
 from pathlib import Path
 
@@ -61,8 +61,11 @@ b) For every relevant file (type=blob):
                 - filename : the exact filename from the URL 
                              e.g. for https://api.github.com/repos/user/repo/contents/src/main.py
                              filename is 'main.py'
-                - VectorDB_path : use the repository name exactly as it appears in the URL
 
+   ⚠️ CRITICAL: If you do not call create_chunks() after EVERY blob, the Vector DB
+   will be empty and Step 4 will produce an incomplete tutorial with no code references.
+   This is a fatal error. There are NO exceptions to this rule.
+   After calling Navigate_repo on a blob, your very next action MUST be create_chunks().
    You MUST call create_chunks() for EVERY blob you read — no exceptions.
    Do NOT wait until all blobs are read — call create_chunks() immediately 
    after each Navigate_repo blob call, in parallel where possible.
@@ -217,28 +220,18 @@ client = AsyncOpenAI(
 )
 
 model = OpenAIChatCompletionsModel(
-    model="gpt-4o-mini",
+    model="gpt-4o",
     openai_client=client)
 
-tools=[get_readme, return_file_structure, Navigate_repo]
+tools=[get_readme, return_file_structure, Navigate_repo, create_chunks]
 Parent_Agent=Agent(name='Parent Agent', instructions=parent_agent_instruction, tools=tools, model=model)
 
-repo_markdown=[]
 
-async def parent_agent(message : str, filename:Path):
+async def parent_agent(message : str):
+    repo_markdown=[]
     with trace('GitHub Repo Explainer'):
         result = Runner.run_streamed(starting_agent=Parent_Agent, input=message)
         async for event in result.stream_events():
             if event.type=='raw_response_event' and isinstance(event.data, ResponseTextDeltaEvent):
-                print(event.data.delta)
+                yield event.data.delta
                 repo_markdown.append(event.data.delta)
-
-    tut_text=''.join(repo_markdown)
-    text_path=Path(filename)
-    text_path.mkdir(exist_ok=True)
-    save_path=text_path/'repo.txt'
-
-    with open(save_path, 'w', encoding='utf-8') as f:
-        f.write(tut_text)
-        
-    save_as_pdf(tutorial_text=tut_text, filename=filename)

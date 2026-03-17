@@ -25,6 +25,7 @@ def Graph_Query_Qdrant(message:str):
             model="text-embedding-3-small",
             input=message)
     
+    #for selective search for qdrant created a payload_index
     client.create_payload_index(
         collection_name="documents",
         field_name="Source_type",
