@@ -18,6 +18,8 @@ WORKDIR /app
 # ── Install Python dependencies ───────────────────────────────────────────────
 COPY requirements.txt .
 
+
+RUN pip install ormsgpack
 # Two-step install:
 # Step 1 — install without dependency resolution (avoids langgraph conflict)
 # Step 2 — install remaining deps that need resolution (httpx, pydantic etc.)
