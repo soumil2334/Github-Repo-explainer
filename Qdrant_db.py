@@ -16,19 +16,19 @@ client = QdrantClient(
 
 def store_in_Qdrant(chunks:list, collection_name="documents"): 
     points=[]
+    
+    collection_name = "documents"
+
+    if not client.collection_exists(collection_name):  
+        client.create_collection(
+        collection_name=collection_name,
+        vectors_config=VectorParams(
+            size=1536,
+            distance=Distance.COSINE
+        )
+    )    
 
     #to avoid multiple collections get created
-    try:
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(
-                size=1536,
-                distance=Distance.COSINE
-            )
-        )
-    except Exception:
-        pass  
-
     for i, chunk in enumerate(chunks):
         response = client_openai.embeddings.create(
             model="text-embedding-3-small",
