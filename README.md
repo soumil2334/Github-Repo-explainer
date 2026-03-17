@@ -15,10 +15,6 @@ RepoLens analyzes any public GitHub repository and generates a structured techni
 5. **Chats** with you about the codebase using a hybrid retrieval pipeline that combines vector search, graph descriptions, and graph traversal
 
 ---
-## Demo
-
-[![RepoLens Demo](https://cdn.loom.com/sessions/thumbnails/46f825371440460bb668b292aa829e6b-with-play.gif)](https://www.loom.com/share/46f825371440460bb668b292aa829e6b)
-```
 
 ## Architecture
 
