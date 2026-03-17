@@ -59,19 +59,25 @@ async def Create_KG(collection_name:str='documents'):
             break
     
     document=[]
+    for point in points:
+        payload = point.payload
 
-    for i, point in enumerate(points):
-        payload=point.payload
+        text = payload.get('text')
+        if not text:  # ✅ skip points with no text
+            logging.warning(f"Skipping point {point.id} — no text field in payload")
+            continue
+
         doc = Document(
-        page_content=payload.get('text'),
+        page_content=text,
         metadata={
             'file':       payload.get('file', 'unknown'),
             'node_type':  payload.get('node_type', 'unknown'),
             'name':       payload.get('name', 'unknown'),
             'start_line': payload.get('start_line', 0),
             'end_line':   payload.get('end_line', 0),
-            'Source_type': 'Graph_Document'})
-
+            'Source_type': 'Graph_Document',
+        }
+    )
         document.append(doc)
 
     sempaphore=asyncio.Semaphore(3)

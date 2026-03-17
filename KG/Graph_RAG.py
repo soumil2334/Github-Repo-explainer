@@ -7,7 +7,8 @@ from qdrant_client.models import PayloadSchemaType
 from KG.create_prompt import build_prompt
 import os
 load_dotenv()
-client_openai = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+Open_Ai=os.getenv('OPENAI_API_KEY')
+client_openai = OpenAI(api_key=Open_Ai)
 
 client = QdrantClient(
     url=os.getenv('QDRANT_CLUSTER'),
