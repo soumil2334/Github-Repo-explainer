@@ -5,6 +5,11 @@
 RepoLens analyzes any public GitHub repository and generates a structured technical tutorial. It then builds a knowledge graph from the codebase and lets you chat with it using a hybrid Graph RAG pipeline combining Neo4j, Qdrant, and the OpenAI Agents SDK.
 
 ---
+## Demo
+
+[![RepoLens Demo](https://cdn.loom.com/sessions/thumbnails/46f825371440460bb668b292aa829e6b-with-play.gif)](https://www.loom.com/share/46f825371440460bb668b292aa829e6b)
+
+---
 
 ## What It Does
 
